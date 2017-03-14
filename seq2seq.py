@@ -10,7 +10,7 @@ from chainer import Chain
 
 class Seq2Seq(Chain):
 
-    __LIMIT = 4
+    __LIMIT = 10
 
     def __init__(self, n_layer, n_unit, n_vocab, gpu=-1, dropout=0.5):
         super(Seq2Seq, self).__init__(
@@ -21,40 +21,52 @@ class Seq2Seq(Chain):
             dec = L.Linear(n_unit*2, n_vocab),
         )
 
-    def __call__(self, x, t=None, train=True):
+    def __call__(self, x, t):
         # encode
         h_x = self.embed(x)
-        h_x = self.bilstm(h_x, train)
+        h_x = self.bilstm(h_x, train=True)
         # attention
         h_x = F.swapaxes(h_x,0,1)
         c = h_x[-1]
         self.lstm.reset_state()
-        if train:
-            t = F.swapaxes(t,0,1)
-            loss = 0
-            for tt in t:
-                c , _ = self.attention(h_x, c)
-                # decode
-                c = self.lstm(c)
-                y = self.dec(c)
-                loss += F.softmax_cross_entropy(y, tt)
-            return loss
-        else:
-            hyp_list = []
-            att_list = []
-            for _ in range(self.__LIMIT):
-                c , a = self.attention(h_x, c)
-                c = self.lstm(c)
-                y = self.dec(c)
-                hyp = y.data.argmax(1)
-                hyp_list.append(hyp)
-                a = F.reshape(a,(a.shape[0],a.shape[1]))
-                att_list.append(a.data)
-            att_list = self.xp.array(att_list)
-            att_list = self.xp.swapaxes(att_list,0,1)
-            return self.xp.array(hyp_list), att_list
+        t = F.swapaxes(t,0,1)
+        loss = 0
+        for tt in t:
+            c , _ = self.attention(h_x, c)
+            # decode
+            c = self.lstm(c)
+            y = self.dec(c)
+            loss += F.softmax_cross_entropy(y, tt)
+        return loss
 
-    def plot_heatmap(self, a_list, row_labels, column_labels, img_path=None):
+    def predict(self, x, eos):
+        # encode
+        h_x = self.embed(x)
+        h_x = self.bilstm(h_x, train=False)
+        # attention
+        h_x = F.swapaxes(h_x,0,1)
+        c = h_x[-1]
+        self.lstm.reset_state()
+        hyp_list = []
+        att_list = []
+        for _ in range(self.__LIMIT):
+            c , a = self.attention(h_x, c)
+            c = self.lstm(c)
+            y = self.dec(c)
+            hyp = y.data.argmax(1)
+            hyp_list.append(hyp)
+            a = F.reshape(a,(a.shape[0],a.shape[1]))
+            att_list.append(a.data)
+            if hyp == eos:
+                break
+        att_list = self.xp.array(att_list)
+        att_list = self.xp.swapaxes(att_list,0,1)
+        return self.xp.array(hyp_list), att_list
+
+    def plot_heatmap(self, a_list, row_labels, column_labels, eos, img_path=None):
+        row_labels = [i for i in row_labels if not i == 0] + [0]
+        a_list = a_list[:,:len(row_labels)]
+
         fig, ax = plt.subplots()
         heatmap = ax.pcolor(a_list, cmap=plt.cm.Blues)
 
@@ -71,3 +83,6 @@ class Seq2Seq(Chain):
             plt.savefig(img_path)
         else:
             plt.show()
+
+    def get_limit(self):
+        return self.__LIMIT
