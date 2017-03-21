@@ -4,6 +4,7 @@ from xp import XP
 
 class Vocab():
     __EOS = 0
+    __PAD = -1
 
     def __init__(self, n_vocab, leng, gpu, seed):
         XP.set_library(gpu, seed)
@@ -23,7 +24,8 @@ class Vocab():
         n = xp.random.randint(1, self.leng-1, 1)
         x = xp.random.randint(1, self.n_vocab, n)
         t = x[::-1]
-        padding = [self.__EOS]* (self.leng - len(x))
+        padding = [self.__EOS]
+        padding += [self.__PAD] * (self.leng - len(x))
         x = xp.append(x, padding)
         t = xp.append(t, padding)
         return (x, t)

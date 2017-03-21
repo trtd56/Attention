@@ -58,6 +58,23 @@ class NStepLSTM(L.NStepLSTM):
         self.hx, self.cx = hy, cy
         return ys
 
+class NstepLstmNet(Chain):
+
+    def __init__(self, n_layers, n_in, n_out, gpu, dropout):
+        use_cudnn = (gpu >= 0)
+        super(NstepLstmNet, self).__init__(
+            nstep_lstm_f = NStepLSTM(n_layers, n_in, n_out, dropout, use_cudnn),
+        )
+
+    def reset_state(self):
+        self.nstep_lstm_f.reset_state()
+
+    def __call__(self, x, train):
+        x_f = [xx for xx in x]
+        self.reset_state()
+        h_x_f = self.nstep_lstm_f(x_f, train)
+        return F.stack(h_x_f)
+
 class BiNstepLstmNet(Chain):
 
     def __init__(self, n_layers, n_in, n_out, gpu, dropout):

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import matplotlib.pyplot as plt
-from bilstm import BiNstepLstmNet
+from bilstm import BiNstepLstmNet, NstepLstmNet
 from attention import GrobalAttentionNet
 
 import chainer.links as L
@@ -10,16 +10,32 @@ from chainer import Chain
 
 class Seq2Seq(Chain):
 
-    __LIMIT = 10
+    __LIMIT = 15
 
-    def __init__(self, n_layer, n_unit, n_vocab, gpu=-1, dropout=0.5):
-        super(Seq2Seq, self).__init__(
-            embed = L.EmbedID(n_vocab, n_unit),
-            bilstm = BiNstepLstmNet(n_layer, n_unit, n_unit, gpu, dropout),
-            attention = GrobalAttentionNet(n_unit*2, n_unit*2),
-            lstm = L.LSTM(n_unit*2, n_unit*2),
-            dec = L.Linear(n_unit*2, n_vocab),
-        )
+    def __init__(self, mode, n_layer, n_unit, n_vocab, gpu=-1, dropout=0.5):
+        self.mode = mode
+        if mode == "normal":
+            super(Seq2Seq, self).__init__(
+                embed = L.EmbedID(n_vocab, n_unit, ignore_label=-1),
+                bilstm = NstepLstmNet(n_layer, n_unit, n_unit, gpu, dropout),
+                lstm = L.LSTM(n_unit, n_unit),
+                dec = L.Linear(n_unit, n_vocab),
+            )
+        elif mode == "bilstm":
+            super(Seq2Seq, self).__init__(
+                embed = L.EmbedID(n_vocab, n_unit, ignore_label=-1),
+                bilstm = BiNstepLstmNet(n_layer, n_unit, n_unit, gpu, dropout),
+                lstm = L.LSTM(n_unit*2, n_unit*2),
+                dec = L.Linear(n_unit*2, n_vocab),
+            )
+        elif mode == "attention":
+            super(Seq2Seq, self).__init__(
+                embed = L.EmbedID(n_vocab, n_unit, ignore_label=-1),
+                bilstm = BiNstepLstmNet(n_layer, n_unit, n_unit*4, gpu, dropout),
+                attention = GrobalAttentionNet(n_unit*8, n_unit*8),
+                lstm = L.LSTM(n_unit*8, n_unit*8),
+                dec = L.Linear(n_unit*8, n_vocab),
+            )
 
     def __call__(self, x, t):
         # encode
@@ -32,7 +48,8 @@ class Seq2Seq(Chain):
         t = F.swapaxes(t,0,1)
         loss = 0
         for tt in t:
-            c , _ = self.attention(h_x, c)
+            if self.mode == "attention":
+                c , _ = self.attention(h_x, c)
             # decode
             c = self.lstm(c)
             y = self.dec(c)
@@ -64,7 +81,7 @@ class Seq2Seq(Chain):
         return self.xp.array(hyp_list), att_list
 
     def plot_heatmap(self, a_list, row_labels, column_labels, eos, img_path=None):
-        row_labels = [i for i in row_labels if not i == 0] + [0]
+        row_labels = [i for i in row_labels if not i == -1]
         a_list = a_list[:,:len(row_labels)]
 
         fig, ax = plt.subplots()

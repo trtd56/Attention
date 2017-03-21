@@ -32,6 +32,6 @@ class GrobalAttentionNet(Chain):
         w1 = self.l1(e)
         w2 = self.l2(h)
         v = self.l3(F.tanh(w1+w2))
-        a =  F.softmax(v)
+        a = F.softmax(v)
         c = F.batch_matmul(h, a, transa=True)
         return F.swapaxes(c, 1, 2), a
