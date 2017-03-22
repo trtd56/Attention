@@ -26,12 +26,13 @@ class GrobalAttentionNet(Chain):
         )
 
     def __call__(self, e, h):
-        h = F.broadcast_to(h, e.shape)
+        h = F.expand_dims(h, 0)
         h = F.swapaxes(h,0,1)
         e = F.swapaxes(e,0,1)
         w1 = self.l1(e)
         w2 = self.l2(h)
+        w2 = F.broadcast_to(w2, e.shape)
         v = self.l3(F.tanh(w1+w2))
         a = F.softmax(v)
-        c = F.batch_matmul(h, a, transa=True)
+        c = F.batch_matmul(e, a, transa=True)
         return F.swapaxes(c, 1, 2), a

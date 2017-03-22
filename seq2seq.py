@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import matplotlib
+matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 from bilstm import BiNstepLstmNet, NstepLstmNet
 from attention import GrobalAttentionNet
@@ -31,10 +34,10 @@ class Seq2Seq(Chain):
         elif mode == "attention":
             super(Seq2Seq, self).__init__(
                 embed = L.EmbedID(n_vocab, n_unit, ignore_label=-1),
-                bilstm = BiNstepLstmNet(n_layer, n_unit, n_unit*4, gpu, dropout),
-                attention = GrobalAttentionNet(n_unit*8, n_unit*8),
-                lstm = L.LSTM(n_unit*8, n_unit*8),
-                dec = L.Linear(n_unit*8, n_vocab),
+                bilstm = BiNstepLstmNet(n_layer, n_unit, n_unit, gpu, dropout),
+                attention = GrobalAttentionNet(n_unit*2, n_unit*2),
+                lstm = L.LSTM(n_unit*2, n_unit*2),
+                dec = L.Linear(n_unit*2, n_vocab),
             )
 
     def __call__(self, x, t):
@@ -100,6 +103,7 @@ class Seq2Seq(Chain):
             plt.savefig(img_path)
         else:
             plt.show()
+        plt.close()
 
     def get_limit(self):
         return self.__LIMIT
